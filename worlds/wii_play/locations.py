@@ -19,13 +19,13 @@ base_id = 0
 shooting_range_locations = {
     "Shooting Range - Bronze Medal":        LocData(base_id + 1),
     "Shooting Range - Silver Medal":        LocData(base_id + 2),
-    "Shooting Range - Gold Medal":          LocData(base_id + 3),
+    "Shooting Range - Give It Your Best Shot (Gold Medal)":          LocData(base_id + 3),
 }
 
 find_mii_locations = {
     "Find Mii - Bronze Medal":              LocData(base_id + 101),
     "Find Mii - Silver Medal":              LocData(base_id + 102),
-    "Find Mii - Gold Medal":                LocData(base_id + 103),
+    "Find Mii - Can You Find Mii? (Gold Medal)":                LocData(base_id + 103),
 }
 
 find_mii_challengesanity_locations = {
@@ -44,7 +44,7 @@ find_mii_challengesanity_locations = {
 pose_mii_locations = {
     "Pose Mii - Bronze Medal":              LocData(base_id + 201),
     "Pose Mii - Silver Medal":              LocData(base_id + 202),
-    "Pose Mii - Gold Medal":                LocData(base_id + 203),
+    "Pose Mii - You're Just A Poser (Gold Medal)":                LocData(base_id + 203),
 }
 
 pose_mii_missionsanity_locations = {
@@ -68,19 +68,19 @@ pose_mii_missionsanity_locations = {
 laser_hockey_locations = {
     "Laser Hockey - Bronze Medal": LocData(base_id + 301),
     "Laser Hockey - Silver Medal": LocData(base_id + 302),
-    "Laser Hockey - Gold Medal": LocData(base_id + 303),
+    "Laser Hockey - Laser-Focused (Gold Medal)": LocData(base_id + 303),
 }
 
 table_tennis_locations = {
     "Table Tennis - Bronze Medal": LocData(base_id + 401),
     "Table Tennis - Silver Medal": LocData(base_id + 402),
-    "Table Tennis - Gold Medal": LocData(base_id + 403),
+    "Table Tennis - No Net Losses (Gold Medal)": LocData(base_id + 403),
 }
 
 fishing_locations = {
     "Fishing - Bronze Medal": LocData(base_id + 501),
     "Fishing - Silver Medal": LocData(base_id + 502),
-    "Fishing - Gold Medal": LocData(base_id + 503),
+    "Fishing - Out on the Lake (Gold Medal)": LocData(base_id + 503),
 }
 
 fishing_fishsanity_locations = {
@@ -94,7 +94,7 @@ fishing_fishsanity_locations = {
 billiards_locations = {
     "Billiards - Bronze Medal": LocData(base_id + 601),
     "Billiards - Silver Medal": LocData(base_id + 602),
-    "Billiards - Gold Medal": LocData(base_id + 603),
+    "Billiards - Pool Shark (Gold Medal)": LocData(base_id + 603),
 }
 
 billiards_foulsanity_locations = {
@@ -107,13 +107,13 @@ billiards_foulsanity_locations = {
 charge_locations = {
     "Charge! - Bronze Medal": LocData(base_id + 701),
     "Charge! - Silver Medal": LocData(base_id + 702),
-    "Charge! - Gold Medal": LocData(base_id + 703),
+    "Charge! - Cattle Rangling (Gold Medal)": LocData(base_id + 703),
 }
 
 tanks_locations = {
     "Tanks! - Bronze Medal": LocData(base_id + 1001),
     "Tanks! - Silver Medal": LocData(base_id + 1002),
-    "Tanks! - Gold Medal": LocData(base_id + 1003),
+    "Tanks! - Boom! (Gold Medal)": LocData(base_id + 1003),
 }
 
 tanks_missionsanity_locations = {
@@ -220,15 +220,15 @@ tanks_missionsanity_locations = {
 }
 
 platinum_medal_locations = {
-    "Shooting Range - Platinum Medal":  LocData(base_id + 4),
-    "Find Mii - Platinum Medal":        LocData(base_id + 104),
-    "Pose Mii - Platinum Medal":        LocData(base_id + 204),
-    "Laser Hockey - Platinum Medal":    LocData(base_id + 304),
-    "Table Tennis - Platinum Medal":    LocData(base_id + 404),
-    "Fishing - Platinum Medal":         LocData(base_id + 504),
-    "Billiards - Platinum Medal":       LocData(base_id + 604),
-    "Charge! - Platinum Medal":         LocData(base_id + 704),
-    "Tanks! - Platinum Medal":          LocData(base_id + 1004),
+    "Shooting Range - You're on Target! (Platinum Medal)":  LocData(base_id + 4),
+    "Find Mii - Hey! You Found Mii! (Platinum Medal)":        LocData(base_id + 104),
+    "Pose Mii - Picture-Perfect Posing (Platinum Medal)":        LocData(base_id + 204),
+    "Laser Hockey - The Puck Stops Here (Platinum Medal)":    LocData(base_id + 304),
+    "Table Tennis - Serve It Up (Platinum Medal)":    LocData(base_id + 404),
+    "Fishing - But Her Aim Is Getting Better (Platinum Medal)":         LocData(base_id + 504),
+    "Billiards - Take the Cue (Platinum Medal)":       LocData(base_id + 604),
+    "Charge! - Special Delivery (Platinum Medal)":         LocData(base_id + 704),
+    "Tanks! - Tank! Tank! Tank! (Platinum Medal)":          LocData(base_id + 1004),
 }
 
 location_table = {
