@@ -28,7 +28,6 @@ class PlatinumMedals(Toggle):
     (WARNING: These medals are **very** hard to collect! Your gameplay has to be near perfect!)
     """
     display_name = "Platinum Medals"
-    default = 0
 
 class Missionsanity(Choice):
     """Adds a location check for every individual mission / stage.
@@ -53,12 +52,10 @@ class TanksMissionsanity(Range):
 class FindMiiChallengesanity(Toggle):
     """Toggle extra checks for challenges in Find Mii."""
     display_name = "Find Mii Challengesanity"
-    default = 0
 
 class Fishsanity(Toggle):
     """Adds checks for each type of fish in Fishing (excluding Small Fry). How wonderful!"""
     display_name = "Fishsanity"
-    default = 0
 
 class Foulsanity(Toggle):
     """Adds checks for each type of foul in Billiards.
@@ -66,7 +63,6 @@ class Foulsanity(Toggle):
     (WARNING: These fouls will make you lose points, and make it harder to collect medals.)
     """
     display_name = "Foulsanity"
-    default = 0
 
 class StartingGames(Range):
     """How many games are unlocked from the start."""
