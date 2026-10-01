@@ -64,4 +64,13 @@ class FishingAddresses:
     total_caught      = 0x91b6b0b4   # Word
     game_state        = 0x91b6b12c   # Word | 0=before start, 2=fishing, 3=caught, 4=ending
     last_fish_name_length = 0x920c803f  # Byte | see fish-length table below
+"""
+Current Length of Fish Name
+0x07=Nibbler
+0x09=Small Fry
+0x0b=Touchy Fish
+0x0c=Mystery Fish
+0x0e=Plain Ol' Fish
+0x10=King of the Pond
+"""
     last_fish_name    = 0x920caaf9   # 30 bytes ASCII
