@@ -40,6 +40,7 @@ class Missionsanity(Choice):
     option_pose_mii = 0
     option_tanks = 1
     option_both = 2
+    option_none = 3
     default = 2
 
 class TanksMissionsanity(Range):
