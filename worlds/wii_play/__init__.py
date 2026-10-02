@@ -69,8 +69,16 @@ class WiiPlayWorld(World):
         return items.get_random_filler_item_name(self)
 
     def fill_slot_data(self) -> Mapping[str, Any]:
-        return self.options.as_dict(
-            "goal_type", "medal_hunt", "platinum_medals", "missionsanity",
-            "tanks_missionsanity", "find_mii_challengesanity", "fishsanity",
-            "foulsanity", "starting_games",
-        )
+        slot_data = {
+            "goal_type": self.options.goal_type.value,
+            "medal_hunt": self.options.medal_hunt.value,
+            "plat_medals": self.options.platinum_medals.value,
+            "missionsanity": self.options.missionsanity.value,
+            "tanks_missionsanity": self.options.tanks_missionsanity.value,
+            "find_mii_challengesanity": self.options.find_mii_challengesanity.value,
+            "fishsanity": self.options.fishsanity.value,
+            "foulsanity": self.options.foulsanity.value,
+            "starting_games": self.options.starting_games.value,
+        }
+
+        return slot_data
