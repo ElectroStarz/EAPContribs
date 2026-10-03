@@ -8,7 +8,7 @@ from BaseClasses import Item, ItemClassification
 
 
 if TYPE_CHECKING:
-    from .world import SM3DWWorld
+    from . import SM3DWWorld
 
 ITEM_NAME_TO_ID = {
     #Character Unlocks

@@ -36,7 +36,7 @@ class SM3DWWorld(World):
 
     game = "Super Mario 3D World"
 
-    web = web_world.SM3DWWebWorld()
+    web = SM3DWWebWorld()
 
     options_dataclass = SM3DWOptions
     options: SM3DWOptions

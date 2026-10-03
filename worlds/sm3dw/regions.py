@@ -7,7 +7,7 @@ from BaseClasses import Entrance, Region
 from worlds.sm3dw.options import Goal, GoldenFlagSanity, BossSanity
 
 if TYPE_CHECKING:
-    from .world import SM3DWWorld
+    from . import SM3DWWorld
 
 def create_and_connect_regions(world: SM3DWWorld) -> None:
     create_all_regions(world)
