@@ -39,7 +39,7 @@ class StartingCharacter(Choice):
     option_luigi = 1  
     option_peach = 2
     option_toad = 3
-    option_roselina = 4
+    option_rosalina = 4
     option_random = 5
     
     default = 0
