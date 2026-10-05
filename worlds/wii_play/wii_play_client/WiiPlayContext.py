@@ -96,7 +96,7 @@ class WiiPlayContext(CommonContext):
                 if item_name is None:
                     continue
 
-                if item_name.removesuffix(" Unlock") in games:
+                if item_name in games:
                     self.unlocked_games.add(item_name)
 
 
