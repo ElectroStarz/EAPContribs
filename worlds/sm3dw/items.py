@@ -180,7 +180,7 @@ def create_all_items(world: SM3DWWorld) -> None:
             starting = "Toad"
         case StartingCharacter.option_rosalina:
             starting = "Rosalina"
-        case StartingCharacter.option_random:
+        case StartingCharacter.option_random_character:
             starting = world.random.choice(list(characters))
         case _:
             raise OptionError(f"Starting Character {world.options.starting_character.value} isn't valid!")

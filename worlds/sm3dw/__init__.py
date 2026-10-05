@@ -2,8 +2,8 @@ from collections.abc import Mapping
 from typing import Any
 from worlds.AutoWorld import World
 
-from . import items, locations, regions, rules, web_world, options
-from .options import SM3DWOptions, option_groups, option_presets
+from . import items, locations, regions, rules, options
+from .options import SM3DWOptions, option_groups#, option_presets
 
 from BaseClasses import Tutorial
 from worlds.AutoWorld import WebWorld
