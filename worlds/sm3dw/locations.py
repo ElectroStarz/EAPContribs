@@ -747,3 +747,5 @@ def create_regular_locations(world: SM3DWWorld) -> None:
 
 def create_events(world: SM3DWWorld) -> None:
     world_1 = world.get_region("World 1")
+
+    world_1.add_event("Beat World 1", "Victory!", item_type=items.SM3DWItem, location_type=SM3DWLocation)
