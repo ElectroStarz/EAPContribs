@@ -18,18 +18,6 @@ def set_completion_condition(world: "WiiPlayWorld") -> None:
     world.set_completion_rule(Has("Victory!"))
 
 def set_all_entrance_rules(world: "WiiPlayWorld") -> None:
-    # each minigame only needs its own item to get into it
-    # game_to_unlock_item = {
-    #     "Shooting Range": "Shooting Range Unlock",
-    #     "Find Mii":       "Find Mii Unlock",
-    #     "Table Tennis":   "Table Tennis Unlock",
-    #     "Pose Mii":       "Pose Mii Unlock",
-    #     "Laser Hockey":   "Laser Hockey Unlock",
-    #     "Billiards":      "Billiards Unlock",
-    #     "Fishing":        "Fishing Unlock",
-    #     "Charge!":        "Charge! Unlock",
-    #     "Tanks!":         "Tanks! Unlock",
-    # }
 
     games = ("Shooting Range", "Find Mii", "Table Tennis", "Pose Mii",
              "Laser Hockey", "Billiards", "Fishing", "Charge!", "Tanks!")
@@ -48,17 +36,18 @@ import math # Needed for the ceiling thingy in the medal hunt thingy
 def set_goal_rules(world: "WiiPlayWorld") -> None:
     victory_location = world.get_location("Victory!")
     all_unlock_items = list(progressive_games.keys())
+    goal = world.options.goal_type.value
 
-    if world.options.goal_type == GoalType.option_gold_medals:
+    if goal in (GoalType.option_gold_medals, GoalType.option_platinum_medals):
         world.set_rule(victory_location, HasAll(*all_unlock_items))
 
-    elif world.options.goal_type == GoalType.option_platinum_medals:
-        world.set_rule(victory_location, HasAll(*all_unlock_items))
+    # elif goal == GoalType.option_platinum_medals:
+    #     world.set_rule(victory_location, HasAll(*all_unlock_items))
 
-    elif world.options.goal_type == GoalType.option_medal_hunt:
+    elif goal == GoalType.option_medal_hunt:
         medals_per_game = 4 if world.options.platinum_medals.value else 3
         games_needed = math.ceil(world.options.medal_hunt.value / medals_per_game)
         world.set_rule(victory_location, HasFromListUnique(*all_unlock_items, count=games_needed))
 
-    elif world.options.goal_type == GoalType.option_tanks_100:
+    elif goal == GoalType.option_tanks_100:
         world.set_rule(victory_location, Has("Tanks!"))

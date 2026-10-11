@@ -10,6 +10,8 @@ class GameState:
     pause_state = 0x804F0E60 # Word | Also counts menu state as paused
     menu_state = 0x80B20604 # Word | ONLY Menu state
 
+    cursor_selected = 0x91B4E5FF # Byte | 0-8, 9 = None
+
 class HighScores:
     shooting_range = 0x80842b58  # Word
     find_mii       = 0x80842b6c  # Word

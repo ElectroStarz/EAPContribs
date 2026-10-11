@@ -8,9 +8,17 @@ from .WiiPlayInterface import WiiPlayInterface, ConnectionState
 from .mem_addresses import *
 
 from NetUtils import ClientStatus, JSONMessagePart
-from CommonClient import CommonContext, ClientCommandProcessor
+tracker_loaded = False
+try:
+    from worlds.tracker.TrackerClient import TrackerGameContext as SuperContext, \
+        TrackerCommandProcessor as SuperCommandProcessor
+
+    tracker_loaded = True
+except ModuleNotFoundError:
+    from CommonClient import CommonContext as SuperContext, ClientCommandProcessor as SuperCommandProcessor
 from NetUtils import ClientStatus
-from ..items import item_table
+
+from ..items import item_table, wiiplay_fillers
 from ..locations import LOCATION_NAME_TO_ID
 
 logger = logging.getLogger("Client")
@@ -18,19 +26,49 @@ logger = logging.getLogger("Client")
 ID_TO_NAME = {data.id: name for name, data in item_table.items()}
 LOCATION_ID_TO_NAME = {loc_id: name for name, loc_id in LOCATION_NAME_TO_ID.items()}
 
-id_to_name = {data.id: name for name, data in item_table.items()}
+CONSUMABLE_STORAGE_CATEGORY = "wii_play_consumables"
+LOCATION_STORAGE_CATEGORY = "wii_play_locations"
 CLIENT_VERSION = "0.0.1"
+COMPATIBLE_VERSIONS = ()
 
-class WiiPlayCommandProcessor(ClientCommandProcessor):
+status_messages = {
+    ConnectionState.DISCONNECTED: "Disconnected",
+    ConnectionState.CONNECTED: "Connected but no specific state found...",
+    ConnectionState.IN_MENU: "In Menu",
+    ConnectionState.SHOOTING_RANGE: "In Shooting Range",
+    ConnectionState.FIND_MII: "In Find Mii",
+    ConnectionState.TABLE_TENNIS: "In Table Tennis",
+    ConnectionState.POSE_MII: "In Pose Mii",
+    ConnectionState.LASER_HOCKEY: "In Laser Hockey",
+    ConnectionState.BILLIARDS: "In Billiards",
+    ConnectionState.FISHING: "In Fishing",
+    ConnectionState.CHARGE: "In Charge!",
+    ConnectionState.TANKS: "In Tanks!",
+}
+
+class WiiPlayCommandProcessor(SuperCommandProcessor):
     ctx: "WiiPlayContext"
 
     def __init__(self, ctx: "WiiPlayContext"):
         super().__init__(ctx)
 
+    def _cmd_status(self):
+        """Display the current dolphin connection status."""
+        logger.info(f"Connection Status: {status_messages[self.ctx.connection_state]}")
+
+    def _cmd_debug_mode(self):
+        """Toggle client debugging on and off (Default off)"""
+        if not self.ctx.DEBUGGING:
+            self.ctx.DEBUGGING = True
+            logger.info("Debugging on")
+        else:
+            self.ctx.DEBUGGING = False
+            logger.info("Debugging off")
+
 
 # noinspection PyDeprecation
 # noinspection PyAttributeOutsideInit
-class WiiPlayContext(CommonContext):
+class WiiPlayContext(SuperContext):
     tags = {"AP"}
     game = "Wii Play"
     game_interface: WiiPlayInterface
@@ -47,15 +85,194 @@ class WiiPlayContext(CommonContext):
         # Unlocked Items Sets
         self.unlocked_games: set[str] = set()
 
-        # Slot Data Stuff
-        self.goal: int = 0
+        self.start_process = True
+        self.game_session_active = False
+
+        self.queued_consumable_indices: Set[int] = set()
+        self.handled_consumable_indices: Set[int] = set()
+        # Set when a Get/SetReply for handled consumables has been applied this session.
+        self._consumables_load_event = asyncio.Event()
+
+        self.filler_to_give = deque()
+        self.traps_to_give = deque()
+
+        self.DEBUGGING: bool = False
+        self.last_debug_messages = deque(maxlen=5)
+
+    def debug_log(self, message: str) -> None:
+        """Sends messages to the client if debugging is on"""
+
+        if self.DEBUGGING:
+            if message not in self.last_debug_messages:
+                self.last_debug_messages.append(message)
+                logger.info(f"[Wii Play Debug] {message}")
+
+    def update_connection_status(self):
+        self.connection_state = self.game_interface.get_connection_state()
+
+    def make_gui(self):
+        ui = super().make_gui()
+        ui.base_title = f"Archipelago Wii Play Client (Version {CLIENT_VERSION}) | AP Version"
+        return ui
+
+    async def server_auth(self, password_requested: bool = False):
+        if password_requested and not self.password:
+            await super(WiiPlayContext, self).server_auth(password_requested)
+        await self.get_username()
+        await self.send_connect()
+
+    async def disconnect(self, allow_autoreconnect: bool = False):
+        await super().disconnect(allow_autoreconnect)
+        self.game_interface.dolphin_client.disconnect()
+        self.clear_local_item_state()
+        self.clear_local_location_state()
+
+    def clear_local_item_state(self):
+        self.unlocked_games.clear()
+
+    def clear_local_location_state(self):
+        self.checked_locations.clear()
+        self.locations_checked.clear()
 
     def log_colour(self, text: str, color: str):
         """Logs the message in full color"""
 
         if self.ui is not None:
-            message: JSONMessagePart = {"type": "color", "text": text, "color": color.lower()}
+            message: JSONMessagePart = {"type": "color", "text": text, "color": color.casefold()}
             self.ui.print_json([message])
+
+    async def mark_consumable_handled(self, item_index: Optional[int]) -> None:
+        """Mark a consumable (1 time or trap) item as handled so the client doesn't use it again"""
+
+        if item_index is None:
+            return
+
+        self.queued_consumable_indices.discard(item_index)
+        self.handled_consumable_indices.add(item_index)
+        # Save after the effect is applied so a disconnect mid-queue doesn't eat the item.
+        await self.save_handled_consumables()
+        self.debug_log(f"Saved handled consumable index {item_index}")
+
+    # --- Consumable persistence (filler + traps) ---
+    # These are one-shot items tracked by AP received-item index and saved to server storage
+    # so reconnects don't hand them out again. Key is scoped per slot.
+
+    @property
+    def consumable_storage_key(self) -> Optional[str]:
+        """Returns a key which is linked to the game and the slot name"""
+
+        if self.seed is None or self.slot is None:
+            return None
+        return f"{CONSUMABLE_STORAGE_CATEGORY}_{self.slot}"
+
+    def _on_consumables_storage_update(self, value: Any) -> None:
+        """Apply server storage for handled filler/trap indices and drop any stale queue entries."""
+        if value is None:
+            self.handled_consumable_indices = set()
+        elif isinstance(value, list):
+            self.handled_consumable_indices = {int(index) for index in value}
+        else:
+            logger.warning(f"Unexpected handled consumables value type: {type(value)}")
+            return
+
+        handled = self.handled_consumable_indices
+        self.filler_to_give = deque(
+            entry for entry in self.filler_to_give
+            if not (isinstance(entry, tuple) and entry[0] in handled)
+        )
+        self.traps_to_give = deque(
+            entry for entry in self.traps_to_give
+            if not (isinstance(entry, tuple) and entry[0] in handled)
+        )
+        self.queued_consumable_indices -= handled
+        self._consumables_load_event.set()
+        self.debug_log(f"Loaded {len(self.handled_consumable_indices)} handled consumables")
+
+    async def save_handled_consumables(self) -> None:
+        """Saves the handled consumables to the AP Data Storage to retrieve upon future connection"""
+
+        key = self.consumable_storage_key
+        if key is None:
+            return
+        await self.send_msgs([{
+            "cmd": "Set",
+            "key": key,
+            "default": [],
+            "want_reply": True,
+            "operations": [{
+                "operation": "replace",
+                "value": sorted(self.handled_consumable_indices)
+            }]
+        }])
+        self.debug_log(f"Saving handled consumables: {sorted(self.handled_consumable_indices)}")
+
+    async def load_handled_consumables(self, initialise: bool = False) -> None:
+        """Load handled filler/trap indices from AP storage before queuing ReceivedItems."""
+        key = self.consumable_storage_key
+        if key is None or self._consumables_load_event.is_set():
+            return
+
+        self._consumables_load_event.clear()
+        if initialise:
+            # First connect for this seed/slot: create the key if missing, then subscribe to updates.
+            await self.send_msgs([{
+                "cmd": "Set",
+                "key": key,
+                "default": [],
+                "want_reply": False,
+                "operations": [{"operation": "default", "value": 0}],
+            }])
+            self.set_notify(key)
+        else:
+            await self.send_msgs([{"cmd": "Get", "keys": [key]}])
+
+        try:
+            await asyncio.wait_for(self._consumables_load_event.wait(), timeout=10.0)
+        except asyncio.TimeoutError:
+            logger.warning("Timed out loading handled consumables from server storage")
+            self._consumables_load_event.set()
+
+    async def _handle_received_items_consumables(self, args: dict) -> None:
+        """Gets called when the client receives a ReceivedItems package, handles both consumables and
+        regular items"""
+
+        # Wait for storage before queuing — otherwise reconnects re-fire already-handled items.
+        await self.load_handled_consumables()
+
+        start_index = args["index"]
+
+        self.debug_log(
+            f"ReceivedItems packet start={start_index}, count={len(args['items'])}, "
+            f"handled_consumables={len(self.handled_consumable_indices)}"
+        )
+
+        for offset, item in enumerate(args["items"]):
+            item_index = start_index + offset
+
+            if item_index in self.handled_consumable_indices or item_index in self.queued_consumable_indices:
+                self.debug_log(f"Skipping already queued/handled consumable index {item_index}")
+                continue
+
+            item_id = item.item if hasattr(item, "item") else item[0]
+            item_name = ID_TO_NAME.get(item_id)
+
+            if not item_name:
+                self.debug_log(f"Skipping unknown item id {item_id} at index {item_index}")
+                continue
+
+            if item_name in wiiplay_fillers:
+                self.filler_to_give.append((item_index, item_name))
+                self.queued_consumable_indices.add(item_index)
+                logger.info(f"Queued filler: {item_name}")
+                self.debug_log(f"Filler queue size is now {len(self.filler_to_give)}")
+
+            elif "Trap" in item_name:
+                self.traps_to_give.append((item_index, item_name))
+                self.queued_consumable_indices.add(item_index)
+                logger.info(f"Queued trap: {item_name}")
+                self.debug_log(f"Trap queue size is now {len(self.traps_to_give)}")
+
+        await self.handle_received_items()
 
     def on_package(self, cmd: str, args: dict):
         """This function handles the packets coming from the AP Server, see the network_package.md in ap docs"""
@@ -66,10 +283,58 @@ class WiiPlayContext(CommonContext):
         if cmd == "Connected":
             ap_locations_checked = args["checked_locations"]
             self.locations_checked.update(ap_locations_checked)
+            self.seed = args.get("seed")
 
             self.slot_data = args.get("slot_data", {})
 
             self.goal = self.slot_data.get("goal")
+            self.medal_hunt = self.slot_data.get("medal_hunt")
+            self.plat_medals = self.slot_data.get("plat_medals")
+            self.missionsanity = self.slot_data.get("missionsanity")
+            self.tanks_missionsanity = self.slot_data.get("tanks_missionsanity")
+            self.find_mii_challengesanity = self.slot_data.get("find_mii_challengesanity")
+            self.fishsanity = self.slot_data.get("fishsanity")
+            self.foulsanity = self.slot_data.get("foulsanity")
+            self.starting_games = self.slot_data.get("starting_games")
+
+            generation_version = self.slot_data.get("version", "0.0.1")
+
+            # Client World mismatch handler
+            if generation_version in COMPATIBLE_VERSIONS:
+                logger.info(
+                    f"This seed was generated on {generation_version}, however client version {CLIENT_VERSION} is compatible!"
+                )
+            elif CLIENT_VERSION != generation_version:
+                logger.error(
+                    f"\n=========================================\n"
+                    f"VERSION MISMATCH DETECTED!\n"
+                    f"Seed was generated on version: {generation_version}\n"
+                    f"Your Client version: {CLIENT_VERSION}. This version is not compatible with version generated on!\n"
+                    f"Please update, downgrade your client, or regenerate the seed as things may break!\n"
+                    f"========================================="
+                )
+            else:
+                logger.info(f"Version check passed! (v{CLIENT_VERSION})")
+
+            asyncio.create_task(self.load_handled_consumables(initialise=True))
+
+        elif cmd in ("Retrieved", "SetReply"):
+            consumable_key = self.consumable_storage_key
+
+            if cmd == "Retrieved":
+                keys_dict = args.get("keys", {})
+
+                if consumable_key and consumable_key in keys_dict:
+                    self._on_consumables_storage_update(args["keys"][consumable_key])
+
+            elif cmd == "SetReply":
+                if consumable_key and args.get("key") == consumable_key:
+                    self._on_consumables_storage_update(args.get("value"))
+
+    def reset_game_session_state(self, game_active: bool = False) -> None:
+        """Reset runtime-only state when the game process/title exits or restarts."""
+        self.start_process = True
+        self.game_session_active = game_active
 
     def ready_to_handle(self) -> bool:
         """Evaluates whether the game is ready to receive items that effect the player in game
@@ -91,7 +356,7 @@ class WiiPlayContext(CommonContext):
 
         for index, network_item in enumerate(self.items_received):
             item_id = network_item.item
-            item_name: str | None = id_to_name.get(item_id)
+            item_name: str | None = ID_TO_NAME.get(item_id)
             if index not in self.items_handled:
                 if item_name is None:
                     continue
@@ -108,23 +373,104 @@ class WiiPlayContext(CommonContext):
 
         This blocks the game from unlocking the game as well."""
 
-        mode_address_pair = [
-            ["Shooting Range", UnlockFlags.shooting_range],
-            ["Find Mii", UnlockFlags.find_mii],
-            ["Table Tennis", UnlockFlags.table_tennis],
-            ["Pose Mii", UnlockFlags.pose_mii],
-            ["Laser Hockey", UnlockFlags.laser_hockey],
-            ["Billiards", UnlockFlags.billiards],
-            ["Fishing", UnlockFlags.fishing],
-            ["Charge!", UnlockFlags.charge],
-            ["Tanks!", UnlockFlags.tanks]
-        ]
+        value_to_game = {
+            0: "Shooting Range",
+            1: "Find Mii",
+            2: "Table Tennis",
+            3: "Pose Mii",
+            4: "Laser Hockey",
+            5: "Billiards",
+            6: "Fishing",
+            7: "Charge!",
+            8: "Tanks!",
+            9: None
+        }
 
-        for pair in mode_address_pair:
-            game = pair[0]
-            unlock_addr = pair[1]
+        current_selected = self.game_interface.dolphin_client.read_byte(GameState.cursor_selected)
 
-            # If we have the game, set the value to 1, else 0
-            value = 1 if game in self.unlocked_games else 0
+        if current_selected != 9 and value_to_game[current_selected] not in self.unlocked_games:
+            # Try to move to next available game
+            to_move_to = next(
+                (value for value, game in value_to_game.items() if game in self.unlocked_games and value > current_selected),
+                None
+            )
 
-            self.game_interface.dolphin_client.write_word(unlock_addr, value)
+            if to_move_to is None:
+                # Reset and find a new number, no new games are available
+                to_move_to = next(
+                    (value for value, game in value_to_game.items() if game in self.unlocked_games),
+                    None
+                )
+
+            if to_move_to is not None:
+                self.game_interface.dolphin_client.write_byte(GameState.cursor_selected, to_move_to)
+            else:
+                self.game_interface.dolphin_client.write_byte(GameState.cursor_selected, 8)
+
+
+    async def dolphin_sync_task(self):
+        """The main loop managing the connection to Dolphin and game-state logic routing"""
+
+        while not self.exit_event.is_set():
+            try:
+                # Handle initial connection hook
+                if not self.game_interface.dolphin_client.is_hooked():
+                    if self.game_session_active:
+                        self.reset_game_session_state(game_active=True)
+                    await self.game_interface.dolphin_client.attempt_to_hook()
+
+                if self.game_interface.dolphin_client.is_hooked():
+                    if not self.game_interface.dolphin_client.check_region():
+                        self.game_interface.dolphin_client.check_region()
+                        await asyncio.sleep(1)
+                        continue
+
+                if not self.server or not self.server.socket or self.server.socket.closed:
+                    message = "Waiting for player to connect to Archipelago server..."
+                    self.start_process = True
+                    if self.last_error_message != message:
+                        logger.info(message)
+                        self.last_error_message = message
+                    await asyncio.sleep(1)
+                    continue
+
+                if not self.slot:
+                    await asyncio.sleep(1)
+                    continue
+
+                if self.start_process:
+                    self.start_process = False
+
+                self.last_error_message = None
+
+                # Route Game State Execution
+                self.update_connection_status()
+
+                if self.game_interface.dolphin_client.is_hooked():
+
+                    if self.connection_state == ConnectionState.IN_MENU:
+                        await self.handle_in_menu()
+                    elif self.connection_state in (ConnectionState.SHOOTING_RANGE, ConnectionState.FIND_MII,
+                                                   ConnectionState.TABLE_TENNIS, ConnectionState.POSE_MII,
+                                                   ConnectionState.LASER_HOCKEY, ConnectionState.BILLIARDS,
+                                                   ConnectionState.FISHING, ConnectionState.CHARGE, ConnectionState.TANKS):
+                        await self.handle_in_game()
+                    else:
+                        await asyncio.sleep(1)
+                        continue
+
+                await asyncio.sleep(0.1)
+
+            except Exception as e:
+                if "Dolphin" in str(e):
+                    logger.error(f"Dolphin Connection Error: {e}")
+                    self.update_connection_status()
+                else:
+                    logger.error(f"Sync Task Error:\n{traceback.format_exc()}")
+                await asyncio.sleep(3)
+
+    async def handle_in_menu(self):
+        pass
+
+    async def handle_in_game(self):
+        pass
