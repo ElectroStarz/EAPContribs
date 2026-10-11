@@ -7,6 +7,7 @@ import asyncio
 GAME_VERSION = None
 
 # I'm repurposing a lot of code from my goat ElectroStarz. Thanks :)
+# nah Synzic the goat :face_holding_back_tears:
 
 STANDARD_DOLPHIN_PROCESS_NAMES = frozenset({
     "dolphin",
@@ -116,6 +117,8 @@ class DolphinClient:
 
         if decoded == "RHAE01":
             detected_version = "NTSC-U"
+        elif decoded == "RHAP01":
+            detected_version = "PAL"
         else:
             GAME_VERSION = None
             self.told_region = False

@@ -7,7 +7,19 @@ from . import regions, rules, locations, items
 from .options import *
 from .items import ITEM_NAME_TO_ID
 from .locations import LOCATION_NAME_TO_ID
+import json
+import pkgutil
 from worlds.LauncherComponents import Component, Type, components, launch, icon_paths
+
+# Find world version
+# Read the file data from the APWorld
+data = pkgutil.get_data(__name__, "archipelago.json")
+
+if data is not None:
+    file = json.loads(data.decode("utf-8"))
+    WORLD_VERSION = file["world_version"]
+else:
+    raise FileNotFoundError("Could not find archipelago.json in the APWorld!")
 
 def run_client(*args: str) -> None:
     from .wii_play_client.main_client import launch_wii_play_client
@@ -46,6 +58,20 @@ class WiiPlayWorld(World):
     game = "Wii Play"
     web = WiiPlayWebWorld()
 
+    ut_can_gen_without_yaml = True
+    ut_generation_options = (
+        "goal_type",
+        "medal_hunt",
+        "platinum_medals",
+        "missionsanity",
+        "tanks_missionsanity",
+        "find_mii_challengesanity",
+        "fishsanity",
+        "foulsanity",
+        "starting_games",
+    )
+
+
     options_dataclass = WiiPlayOptions
     options: WiiPlayOptions
 
@@ -55,6 +81,14 @@ class WiiPlayWorld(World):
     origin_region_name = "Main Menu"
 
     def generate_early(self) -> None:
+        re_gen_passthrough = getattr(self.multiworld, "re_gen_passthrough", {})
+        if re_gen_passthrough and self.game in re_gen_passthrough:
+            slot_data = re_gen_passthrough[self.game]
+            for option_name, value in slot_data.get("options", {}).items():
+                option = getattr(self.options, option_name, None)
+                if option is not None:
+                    setattr(self.options, option_name, option.from_any(value))
+
         if self.options.goal_type.value == GoalType.option_platinum_medals and not self.options.platinum_medals.value:
             raise OptionError(
                 f"{self.player_name}'s Goal Type is set to Platinum Medals, but Platinum Medals are not enabled!"
@@ -84,8 +118,14 @@ class WiiPlayWorld(World):
     def get_filler_item_name(self) -> str:
         return items.get_random_filler_item_name(self)
 
+    @staticmethod
+    def interpret_slot_data(slot_data: dict[str, Any]) -> dict[str, Any]:
+        """Request a Universal Tracker regeneration using the seed's slot data."""
+        return slot_data
+
     def fill_slot_data(self) -> Mapping[str, Any]:
         slot_data = {
+            "version": WORLD_VERSION,
             "goal": self.options.goal_type.value,
             "medal_hunt": self.options.medal_hunt.value,
             "plat_medals": self.options.platinum_medals.value,
