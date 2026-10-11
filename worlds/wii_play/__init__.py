@@ -59,7 +59,7 @@ class WiiPlayWorld(World):
     web = WiiPlayWebWorld()
 
     ut_can_gen_without_yaml = True
-    ut_gen_options = (
+    ut_generation_options = (
         "goal_type",
         "medal_hunt",
         "platinum_medals",
