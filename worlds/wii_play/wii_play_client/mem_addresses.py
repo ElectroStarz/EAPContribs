@@ -6,9 +6,12 @@ class GameState:
                                        #        3=Pose Mii, 4=Laser Hockey, 5=Billiards,
                                        #        6=Fishing, 7=Charge!, 8=Tanks!
 
+
+    ntsc_game_state = 0x80380DB4  # 0: Game, 1: Menu, 2: Pause
+
     # For both, 0 = Not in state, 1 = In state
-    pause_state = 0x804F0E60 # Word | Also counts menu state as paused
-    menu_state = 0x80B20604 # Word | ONLY Menu state
+    pal_pause_state = 0x804F0E60 # Word | Also counts menu state as paused
+    pal_menu_state = 0x80B20604 # Word | ONLY Menu state
 
     cursor_selected = 0x91B4E5FF # Byte | 0-8, 9 = None
 

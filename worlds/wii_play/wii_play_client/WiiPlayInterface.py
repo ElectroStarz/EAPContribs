@@ -56,16 +56,20 @@ class WiiPlayInterface:
 
     def in_menu(self) -> bool:
         """Returns True if the player is in the menu"""
-
-        return bool(self.dolphin_client.read_word(GameState.menu_state))
+        if GAME_VERSION == "NTSC-U":
+            return self.dolphin_client.read_word(GameState.ntsc_game_state) == 1
+        elif GAME_VERSION == "PAL":
+            return bool(self.dolphin_client.read_word(GameState.pal_menu_state))
 
     def is_paused(self) -> bool:
         """Returns True if the player is paused and NOT in the menu"""
 
-        in_menu = bool(self.dolphin_client.read_word(GameState.menu_state))
-        is_paused = bool(self.dolphin_client.read_word(GameState.pause_state))
-
-        return is_paused and not in_menu
+        if GAME_VERSION == "NTSC-U":
+            return self.dolphin_client.read_word(GameState.ntsc_game_state) == 2
+        elif GAME_VERSION == "PAL":
+            in_menu = bool(self.dolphin_client.read_word(GameState.pal_menu_state))
+            is_paused = bool(self.dolphin_client.read_word(GameState.pal_pause_state))
+            return is_paused and not in_menu
 
     def get_connection_state(self):
         try:

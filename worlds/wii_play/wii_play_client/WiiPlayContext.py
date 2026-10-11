@@ -470,7 +470,7 @@ class WiiPlayContext(SuperContext):
                 await asyncio.sleep(3)
 
     async def handle_in_menu(self):
-        pass
+        await self.handle_unlocked_games()
 
     async def handle_in_game(self):
         pass
