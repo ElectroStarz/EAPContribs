@@ -331,6 +331,11 @@ class WiiPlayContext(SuperContext):
                 if consumable_key and args.get("key") == consumable_key:
                     self._on_consumables_storage_update(args.get("value"))
 
+        elif cmd == "ReceivedItems":
+            asyncio.create_task(self._handle_received_items_consumables(args))
+
+
+
     def reset_game_session_state(self, game_active: bool = False) -> None:
         """Reset runtime-only state when the game process/title exits or restarts."""
         self.start_process = True
@@ -464,6 +469,7 @@ class WiiPlayContext(SuperContext):
             except Exception as e:
                 if "Dolphin" in str(e):
                     logger.error(f"Dolphin Connection Error: {e}")
+                    self.update_connection_status()
                     self.update_connection_status()
                 else:
                     logger.error(f"Sync Task Error:\n{traceback.format_exc()}")
