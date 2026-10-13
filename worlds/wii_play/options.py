@@ -78,7 +78,7 @@ wii_play_option_groups = [
         PlatinumMedals,
         Missionsanity,
         TanksMissionsanity,
-        FindMiiChallengesanity,
+        #FindMiiChallengesanity,
         Fishsanity,
         Foulsanity,
     ]),
