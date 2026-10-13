@@ -28,18 +28,18 @@ find_mii_locations = {
     "Find Mii - Can You Find Mii? (Gold Medal)":                LocData(base_id + 103),
 }
 
-find_mii_challengesanity_locations = {
-    "Find Mii - Find 2 Look Alikes":        LocData(base_id + 151),
-    "Find Mii - Find 3 Look Alikes":        LocData(base_id + 152),
-    "Find Mii - Find 4 Look Alikes":        LocData(base_id + 153),
-    "Find Mii - Find 5 Look Alikes":        LocData(base_id + 154),
-    "Find Mii - Find the Odd Mii Out":      LocData(base_id + 155),
-    "Find Mii - Find the Fastest Mii":      LocData(base_id + 156),
-    "Find Mii - Find the Mii You're Using": LocData(base_id + 157),
-    "Find Mii - Find This Mii":             LocData(base_id + 158),
-    "Find Mii - Find the Sleepyhead":       LocData(base_id + 159),
-    "Find Mii - Find Your Favorite":        LocData(base_id + 160),
-}
+#find_mii_challengesanity_locations = {
+#    "Find Mii - Find 2 Look Alikes":        LocData(base_id + 151),
+#    "Find Mii - Find 3 Look Alikes":        LocData(base_id + 152),
+#    "Find Mii - Find 4 Look Alikes":        LocData(base_id + 153),
+#    "Find Mii - Find 5 Look Alikes":        LocData(base_id + 154),
+#   "Find Mii - Find the Odd Mii Out":      LocData(base_id + 155),
+#    "Find Mii - Find the Fastest Mii":      LocData(base_id + 156),
+#    "Find Mii - Find the Mii You're Using": LocData(base_id + 157),
+#    "Find Mii - Find This Mii":             LocData(base_id + 158),
+#    "Find Mii - Find the Sleepyhead":       LocData(base_id + 159),
+#    "Find Mii - Find Your Favorite":        LocData(base_id + 160),
+#}
 
 pose_mii_locations = {
     "Pose Mii - Bronze Medal":              LocData(base_id + 201),
@@ -136,7 +136,7 @@ platinum_medal_locations = {
 location_table = {
     **shooting_range_locations,
     **find_mii_locations,
-    **find_mii_challengesanity_locations,
+#    **find_mii_challengesanity_locations,
     **pose_mii_locations,
     **pose_mii_missionsanity_locations,
     **laser_hockey_locations,
@@ -189,10 +189,10 @@ def create_regular_locations(world: "WiiPlayWorld") -> None:
 
     # sanity options
 
-    if world.options.find_mii_challengesanity:
-        find_mii.add_locations(
-            get_location_names_with_ids(list(find_mii_challengesanity_locations.keys())),
-            WiiPlayLocation)
+    #if world.options.find_mii_challengesanity:
+        #find_mii.add_locations(
+            #get_location_names_with_ids(list(find_mii_challengesanity_locations.keys())),
+            #WiiPlayLocation)
 
     if world.options.missionsanity in (Missionsanity.option_pose_mii, Missionsanity.option_both):
         pose_mii.add_locations(

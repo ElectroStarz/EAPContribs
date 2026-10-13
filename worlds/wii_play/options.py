@@ -50,9 +50,9 @@ class TanksMissionsanity(Range):
     range_end = 100
     default = 30
 
-class FindMiiChallengesanity(Toggle):
-    """Toggle extra checks for challenges in Find Mii."""
-    display_name = "Find Mii Challengesanity"
+#class FindMiiChallengesanity(Toggle):
+#    """Toggle extra checks for challenges in Find Mii."""
+#    display_name = "Find Mii Challengesanity"
 
 class Fishsanity(Toggle):
     """Adds checks for each type of fish in Fishing (excluding Small Fry). How wonderful!"""
@@ -94,7 +94,7 @@ class WiiPlayOptions(PerGameCommonOptions):
     platinum_medals: PlatinumMedals
     missionsanity: Missionsanity
     tanks_missionsanity: TanksMissionsanity
-    find_mii_challengesanity: FindMiiChallengesanity
+#    find_mii_challengesanity: FindMiiChallengesanity
     fishsanity: Fishsanity
     foulsanity: Foulsanity
     starting_games: StartingGames
