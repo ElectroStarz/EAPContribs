@@ -50,7 +50,7 @@ tanks_items = {
 wiiplay_fillers = {
     "Filler": ItemData(base_id + 502, IC.filler),
     "+10 Rally Bonus! - Table Tennis": ItemData(base_id + 503, IC.filler),
-    "+1 Points! - Laser Hockey": ItemData(base_id + 504, IC.filler),
+    "+1 Point! - Laser Hockey": ItemData(base_id + 504, IC.filler),
     "Feeling sleepy...": ItemData(base_id + 505, IC.filler),
     "Extra Life - Tanks!": ItemData(base_id + 506, IC.filler),
 }
