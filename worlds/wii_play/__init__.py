@@ -54,6 +54,7 @@ class WiiPlayWebWorld(WebWorld):
 
 class WiiPlayWorld(World):
     """
+    Wii Play is compilation of nine different minigames demonstrating the Wii's unique controller.
     """
     game = "Wii Play"
     web = WiiPlayWebWorld()
@@ -65,7 +66,7 @@ class WiiPlayWorld(World):
         "platinum_medals",
         "missionsanity",
         "tanks_missionsanity",
-        "find_mii_challengesanity",
+        #"find_mii_challengesanity",
         "fishsanity",
         "foulsanity",
         "starting_games",
@@ -131,7 +132,7 @@ class WiiPlayWorld(World):
             "plat_medals": self.options.platinum_medals.value,
             "missionsanity": self.options.missionsanity.value,
             "tanks_missionsanity": self.options.tanks_missionsanity.value,
-            "find_mii_challengesanity": self.options.find_mii_challengesanity.value,
+            #"find_mii_challengesanity": self.options.find_mii_challengesanity.value,
             "fishsanity": self.options.fishsanity.value,
             "foulsanity": self.options.foulsanity.value,
             "starting_games": self.options.starting_games.value,
