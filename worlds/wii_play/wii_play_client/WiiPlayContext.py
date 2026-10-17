@@ -8,6 +8,7 @@ from .WiiPlayInterface import WiiPlayInterface, ConnectionState
 from .mem_addresses import *
 
 from NetUtils import ClientStatus, JSONMessagePart
+
 tracker_loaded = False
 try:
     from worlds.tracker.TrackerClient import TrackerGameContext as SuperContext, \
@@ -30,6 +31,38 @@ CONSUMABLE_STORAGE_CATEGORY = "wii_play_consumables"
 LOCATION_STORAGE_CATEGORY = "wii_play_locations"
 CLIENT_VERSION = "0.0.1"
 COMPATIBLE_VERSIONS = ()
+
+GAMES = ("Shooting Range", "Find Mii", "Table Tennis", "Pose Mii",
+         "Laser Hockey", "Billiards", "Fishing", "Charge!", "Tanks!")
+
+MEDAL_ATTR = {g: g.lower().replace(" ", "_").rstrip("!") for g in GAMES}
+
+def _build_medal_location_ids():
+    suffixes = {1: "Bronze Medal", 2: "Silver Medal", 3: "(Gold Medal)", 4: "(Platinum Medal)"}
+    result = {}
+    for game in GAMES:
+        for tier, suffix in suffixes.items():
+            for name, loc_id in LOCATION_NAME_TO_ID.items():
+                if name.startswith(f"{game} - ") and name.endswith(suffix):
+                    result[(game, tier)] = loc_id
+    return result
+
+MEDAL_LOCATION_IDS = _build_medal_location_ids()
+
+FOUL_LOCATIONS = {
+    1: "Billiards - Your 1st Foul",
+    3: "Billiards - Natural Fouler! (3 Fouls)",
+    6: "Billiards - Ooh, it's not looking good. (6 Fouls)",
+    10: "Billiards - How do you do it? (10 Fouls)",
+}
+
+FISH_LOCATIONS = {
+    0x07: "Fishing - Catch Nibbler",
+    0x0b: "Fishing - Catch Touchy Fish",
+    0x0c: "Fishing - Catch Mystery Fish",
+    0x0e: "Fishing - Catch Plain Ol' Fish",
+    0x10: "Fishing - Catch King of the Pond",
+}
 
 status_messages = {
     ConnectionState.DISCONNECTED: "Disconnected",
@@ -98,6 +131,11 @@ class WiiPlayContext(SuperContext):
 
         self.DEBUGGING: bool = False
         self.last_debug_messages = deque(maxlen=5)
+        self.medal_levels = {}
+        self.tanks_100_cleared = False
+        self.goal_sent = False
+        self.last_error_message = None
+
 
     def debug_log(self, message: str) -> None:
         """Sends messages to the client if debugging is on"""
@@ -133,6 +171,7 @@ class WiiPlayContext(SuperContext):
     def clear_local_location_state(self):
         self.checked_locations.clear()
         self.locations_checked.clear()
+
 
     def log_colour(self, text: str, color: str):
         """Logs the message in full color"""
@@ -283,7 +322,7 @@ class WiiPlayContext(SuperContext):
         if cmd == "Connected":
             ap_locations_checked = args["checked_locations"]
             self.locations_checked.update(ap_locations_checked)
-            self.seed = args.get("seed")
+            self.seed = self.server_seed_name
 
             self.slot_data = args.get("slot_data", {})
 
@@ -392,6 +431,8 @@ class WiiPlayContext(SuperContext):
         }
 
         current_selected = self.game_interface.dolphin_client.read_byte(GameState.cursor_selected)
+        if current_selected not in value_to_game:
+            return
 
         if current_selected != 9 and value_to_game[current_selected] not in self.unlocked_games:
             # Try to move to next available game
@@ -477,6 +518,154 @@ class WiiPlayContext(SuperContext):
 
     async def handle_in_menu(self):
         await self.handle_unlocked_games()
+        await self.check_medals()
+        await self.check_goal()
+        await self.process_queue(self.filler_to_give, self.apply_filler)
 
     async def handle_in_game(self):
-        pass
+        await self.check_medals()
+        if self.connection_state == ConnectionState.BILLIARDS:
+            await self.check_fouls()
+        elif self.connection_state == ConnectionState.TANKS:
+            await self.check_tanks()
+        elif self.connection_state == ConnectionState.FISHING:
+            await self.check_fish()
+        await self.check_goal()
+        if self.ready_to_handle():
+            await self.process_queue(self.filler_to_give, self.apply_filler)
+
+    async def send_new_checks(self, location_ids: set[int]) -> None:
+        # only send checks that aren't already checked
+        new = {
+            loc for loc in location_ids
+            if loc in self.missing_locations and loc not in self.locations_checked
+        }
+        if not new:
+            return
+        self.locations_checked.update(new)
+        await self.send_msgs([{"cmd": 'LocationChecks', "locations": tuple(new)}])
+
+    def read_medal_levels(self) -> None:
+        # the medal bytes only store the highest tier, having gold means you have silver and bronze
+        client = self.game_interface.dolphin_client
+        levels = {}
+        for game in GAMES:
+            value = client.read_byte(getattr(Medals, MEDAL_ATTR[game]))
+            levels[game] = value if 0 <= value <= 4 else 0
+        return levels
+
+    async def check_medals(self) -> None:
+        levels = self.read_medal_levels()
+        self.medal_levels = levels
+
+        ids = set()
+        for game, level in levels.items():
+            for tier in range(1, level + 1):
+                loc = MEDAL_LOCATION_IDS.get((game, tier))
+                if loc is not None:
+                    ids.add(loc)
+        await self.send_new_checks(ids)
+
+    async def check_goal(self) -> None: # NEW
+        if self.goal_sent or self.goal is None:
+            return
+
+        levels = self.medal_levels
+        have_all = len(levels) == len(GAMES)
+        plat = bool(self.plat_medals)
+
+        if self.goal == 0:
+            done = have_all and all(level >= 3 for level in levels.values())
+        elif self.goal == 1:
+            done = have_all and all(level >= 4 for level in levels.values())
+        elif self.goal == 2:
+            cap = 4 if plat else 3
+            done = sum(min(level, cap) for level in levels.values()) >= self.medal_hunt
+        elif self.goal == 3:
+            done = self.tanks_100_cleared
+        else:
+            done = False
+
+        if done:
+            self.goal_sent = True
+            logger.info("Wii played (Goal)!")
+            await self.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+
+    async def check_tanks(self) -> None:
+        client = self.game_interface.dolphin_client
+        if client.read_word(TanksAddresses.game_state) != 0x06:  # 0x06 Tank Won
+            return
+        mission = client.read_word(TanksAddresses.current_mission) + 1  # stored as mission - 1
+        if not 1 <= mission <= 100:
+            return
+
+        name = f"Tanks! - Mission {mission} Complete"
+        await self.send_new_checks({LOCATION_NAME_TO_ID[name]})
+        if mission == 100:
+            self.tanks_100_cleared = True
+
+    async def check_fouls(self) -> None:
+        fouls = self.game_interface.dolphin_client.read_word(BilliardsAddresses.fouls)
+        ids = {LOCATION_NAME_TO_ID[name] for need, name in FOUL_LOCATIONS.items() if fouls >= need}
+        await self.send_new_checks(ids)
+
+    async def check_fish(self) -> None:
+        client = self.game_interface.dolphin_client
+        if client.read_word(FishingAddresses.game_state) != 3:
+            return
+        length = client.read_byte(FishingAddresses.last_fish_name_length)
+        name = FISH_LOCATIONS.get(length)
+        if name is not None:
+            await self.send_new_checks({LOCATION_NAME_TO_ID[name]})
+
+    async def apply_filler(self, name: str) -> bool:
+        client = self.game_interface.dolphin_client
+
+        if name == "Filler":
+            return True
+
+        if name == "Extra Life - Tanks!":
+            if self.connection_state != ConnectionState.TANKS:
+                return False
+            lives = client.read_word(TanksAddresses.extra_lives)
+            client.write_word(TanksAddresses.extra_lives, lives + 1)
+            return True
+
+        if name == "+10 Rally Bonus! - Table Tennis":
+            if self.connection_state != ConnectionState.TABLE_TENNIS:
+                return False
+            rally_bonus = client.read_word(TennisAddresses.current_rally)
+            if rally_bonus < 1:
+                return False
+            client.write_word(TennisAddresses.current_rally, rally_bonus + 20)
+            return True
+
+        if name == "+1 Point! - Laser Hockey":
+            if self.connection_state != ConnectionState.LASER_HOCKEY:
+                return False
+            hockey_score = client.read_word(HockeyAddresses.hockey_score)
+            client.write_word(HockeyAddresses.hockey_score, hockey_score + 1)
+            return True
+
+        if name == "Feeling sleepy...":
+            if self.connection_state != ConnectionState.IN_MENU:
+                return False
+            current_menu_pose = client.read_word(SleepyAddresses.menu_pose_1)
+            if current_menu_pose != 0:
+                return False
+            async def sleepy_loop():
+                while self.connection_state == ConnectionState.IN_MENU:
+                    client.write_word(SleepyAddresses.menu_pose_1, 7)
+                    client.write_word(SleepyAddresses.menu_pose_2, 7)
+                    await asyncio.sleep(0.02)
+
+            asyncio.create_task(sleepy_loop())
+            return True
+        return False
+
+    async def process_queue(self, queue, apply_fn) -> None: # NEW
+        for entry in list(queue):
+            index, name = entry
+            if await apply_fn(name):
+                queue.remove(entry)
+                await self.mark_consumable_handled(index)

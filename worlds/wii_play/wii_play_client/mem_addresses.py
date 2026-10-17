@@ -68,6 +68,16 @@ class BilliardsAddresses:
     max_sunk_one_shot = 0x91b45034   # Word
     final_score       = 0x91b7ba08   # Word
 
+class TennisAddresses:
+    current_rally = 0x91C99CBC
+
+class HockeyAddresses:
+    hockey_score = 0x91BEDDB8
+
+class SleepyAddresses:
+    menu_pose_1 = 0x91B4EB50
+    menu_pose_2 = 0x91B4EB48
+
 class FishingAddresses:
     score             = 0x91b6b09c   # Word
     total_caught      = 0x91b6b0b4   # Word
